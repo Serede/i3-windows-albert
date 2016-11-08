@@ -47,19 +47,20 @@ def get_windows(i3):
 
 def create_lookup_table(windows):
     # Create a lookup table from the given list of windows.
-    # The returned dict is in the format window title => con_id.
+    # The returned dict is in the format window_name => con_id.
     rename_nonunique(windows)
     lookup = {}
     for window in windows:
-        name = window.name
         id_ = window.id
+        class_ = window.window_class
+        name = window.name
         if id_ is None:
             # This is not an X window, ignore it.
             continue
-        if name.startswith("i3bar for output"):
-            # This is an i3bar, ignore it.
+        if window.focused:
+            # This is the focused window, ignore it.
             continue
-        lookup[name] = id_
+        lookup[id_] = [class_, name]
     return lookup
 
 def rename_nonunique(windows):
@@ -94,7 +95,7 @@ if(len(sys.argv) > 1):
         print(json.dumps(metadata))
 
     elif opcode == "NAME":
-        print('i3-windows')
+        print("i3-windows")
 
     elif opcode == "INITIALIZE":
         pass
@@ -117,12 +118,12 @@ if(len(sys.argv) > 1):
             # Window lookup.
             windows = get_windows(i3)
             results = []
-            for title, id_ in windows.items():
-                if(re.search(query, title, re.IGNORECASE)):
+            for id_, [class_, name] in windows.items():
+                if(re.search(query, name, re.IGNORECASE)):
                         results.append({
-                            "id": "i3",
-                            "name": title,
-                            "description": "Focus window",
+                            "id": "i3-window-" + str(id_),
+                            "name": class_,
+                            "description": name,
                             "icon": "window-manager",
                             "actions": [{
                                 "name": "i3-msg",
