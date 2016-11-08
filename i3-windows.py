@@ -1,31 +1,12 @@
 #!/usr/bin/env python
 
+# Choose the extension trigger:
+_TRIGGER_ = "!"
+
 # i3-windows Extension for Albert
 #
 # Author: Serede Sixty Six <serede.dev@gmail.com>
-#
-# MIT License
-# 
-# Copyright (c) 2016 Serede Sixty Six
-# 
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-# 
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-# 
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-
+# Code licensed under MIT License.
 __version__ = "1.0"
 
 import sys
@@ -41,39 +22,22 @@ except ImportError:
     exit(1)
 
 def get_windows(i3):
-    # Get all windows.
-    windows = i3.get_tree().leaves()
-    return create_lookup_table(windows)
-
-def create_lookup_table(windows):
-    # Create a lookup table from the given list of windows.
-    # The returned dict is in the format window_name => con_id.
-    rename_nonunique(windows)
-    lookup = {}
-    for window in windows:
+    # Get all windows in a dict {con_id => [name, desc]}
+    windows = {}
+    for window in i3.get_tree().leaves():
         id_ = window.id
         class_ = window.window_class
-        name = window.name
+        ws = window.workspace().name
+        name = "[{}] {}".format("Scratchpad" if ws == "__i3_scratch" else ws, class_)
+        desc = window.name
         if id_ is None:
             # This is not an X window, ignore it.
             continue
         if window.focused:
             # This is the focused window, ignore it.
             continue
-        lookup[id_] = [class_, name]
-    return lookup
-
-def rename_nonunique(windows):
-    # Rename all windows which share a name by appending an index.
-    window_names = [window.name for window in windows]
-    for name in window_names:
-        count = window_names.count(name)
-        if count > 1:
-            for i in range(count):
-                index = window_names.index(name)
-                window_names[index] = "{} [{}]".format(name, i + 1)
-    for i in range(len(windows)):
-        windows[i].name = window_names[i]
+        windows[id_] = [name, desc]
+    return windows
 
 # Check first argument.
 if(len(sys.argv) > 1):
@@ -90,7 +54,7 @@ if(len(sys.argv) > 1):
                 "providesMatches": True,
                 "providesFallbacks": False,
                 "runTriggeredOnly": True,
-                "triggers": ["!"]
+                "triggers": [_TRIGGER_]
                 }
         print(json.dumps(metadata))
 
@@ -116,14 +80,13 @@ if(len(sys.argv) > 1):
             # Connect to i3.
             i3 = i3ipc.Connection()
             # Window lookup.
-            windows = get_windows(i3)
             results = []
-            for id_, [class_, name] in windows.items():
-                if(re.search(query, name, re.IGNORECASE)):
+            for id_, [name, desc] in get_windows(i3).items():
+                if(re.search(query, name, re.IGNORECASE) or re.search(query, desc, re.IGNORECASE)):
                         results.append({
                             "id": "i3-window-" + str(id_),
-                            "name": class_,
-                            "description": name,
+                            "name": name,
+                            "description": desc,
                             "icon": "window-manager",
                             "actions": [{
                                 "name": "i3-msg",
